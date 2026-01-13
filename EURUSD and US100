@@ -1,0 +1,45 @@
+//+------------------------------------------------------------------+
+//|                                     Smart_Index_Forex_EA.mq4     |
+//+------------------------------------------------------------------+
+#property strict
+
+input double Lots = 0.01;
+input int    SL_Pips = 20;   // Set to 20 for Micro accounts
+input int    TP_Pips = 40; 
+input int    Magic = 778899;
+
+void OnTick() {
+   // 1. Basic Safety Checks
+   if(OrdersTotal() > 0) return;
+   
+   // 2. Identify if it's an Index or Forex
+   // Indices often have 2 digits (15000.50), Forex has 4 or 5 (1.08505)
+   double multiplier = (Digits <= 3) ? 1.0 : 10.0; 
+   
+   double pipsToPoint = _Point * multiplier;
+
+   // 3. Simple Momentum Logic
+   double ema = iMA(Symbol(), 0, 50, 0, MODE_EMA, PRICE_CLOSE, 0);
+   
+   // BUY if Close is above EMA and previous candle was bullish
+   if(Close[0] > ema && Close[1] > Open[1]) {
+      double sl = Ask - (SL_Pips * pipsToPoint);
+      double tp = Ask + (TP_Pips * pipsToPoint);
+      ExecuteOrder(OP_BUY, Ask, sl, tp);
+   }
+   
+   // SELL if Close is below EMA and previous candle was bearish
+   if(Close[0] < ema && Close[1] < Open[1]) {
+      double sl = Bid + (SL_Pips * pipsToPoint);
+      double tp = Bid - (TP_Pips * pipsToPoint);
+      ExecuteOrder(OP_SELL, Bid, sl, tp);
+   }
+}
+
+void ExecuteOrder(int type, double price, double sl, double tp) {
+   int ticket = OrderSend(Symbol(), type, Lots, price, 3, 
+                         NormalizeDouble(sl, Digits), 
+                         NormalizeDouble(tp, Digits), 
+                         "SmartBot", Magic, 0, (type==OP_BUY?clrBlue:clrRed));
+   if(ticket < 0) Print("Error: ", GetLastError());
+}
